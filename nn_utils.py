@@ -57,7 +57,7 @@ def evaluate_per_lenght(model, test_dataloader, tokenizer):
             cnt_per_x_len[x_len] = cnt_per_x_len.get(x_len, 0) + 1 
             cnt_per_y_len[y_len] = cnt_per_y_len.get(y_len, 0) + 1 
             correct_per_x_len[x_len] = correct_per_x_len.get(x_len, 0) + int(match)
-            correct_per_y_len[y_len] = correct_per_y_len.get(x_len, 0) + int(match)
+            correct_per_y_len[y_len] = correct_per_y_len.get(y_len, 0) + int(match)
     print('correct count per commands length', correct_per_x_len)
     print('correct count per actions lentgh', correct_per_y_len)
     print('all count per commands length', cnt_per_x_len)
