@@ -5,7 +5,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration, RobertaTokeniz
 from transformers.optimization import Adafactor
 import torch 
 import wandb
-from nn_utils import device, cpu_device, evaluate
+from nn_utils import device, cpu_device, evaluate, evaluate_per_lenght
 from tqdm import tqdm
 import sys 
 
@@ -20,9 +20,8 @@ wandb.init()
 cwd = os.getcwd()
 parent = os.path.dirname(cwd)
 dataset_path = os.path.join(parent, 'SCAN') 
-size_variation = sys.argv[1]
-train_file_path = os.path.join(dataset_path, f'simple_split/size_variations/tasks_train_simple_p{size_variation}.txt')
-test_file_path = os.path.join(dataset_path, f'simple_split/size_variations/tasks_test_simple_p{size_variation}.txt')
+train_file_path = os.path.join(dataset_path, f'length_split/tasks_train_length.txt')
+test_file_path = os.path.join(dataset_path, f'length_split/tasks_test_length.txt')
 train_commands, train_actions = read_file(train_file_path)
 test_commands, test_actions = read_file(test_file_path)
 
@@ -55,7 +54,6 @@ test_dataloader = get_dataloader(test_in_tensor, test_out_tensor, config["batch_
 optimizer = Adafactor(model.parameters(), lr=config['lr'], scale_parameter=False, relative_step=False)
 step = 0 
 
-print('size variation', size_variation)
 print('model', model_checkpoint)
 num_epochs = config['n_steps']//len(train_actions) + 1 
 evaluate_x_times = 5 
@@ -84,19 +82,23 @@ for epoch in range(num_epochs):
         torch.cuda.empty_cache()
         
         if step + 1 >= config['n_steps']: 
-            acc = evaluate(model, test_dataloader)
+            acc_per_x_len, acc_per_y_len, acc = evaluate_per_lenght(model, test_dataloader, tokenizer)
             print('final accuracy: ', acc)
+            print('accuracy per command length', acc_per_x_len)
+            print('accuracy per action length', acc_per_y_len)
             wandb.log({'step':step, 'accuracy':acc})
             model.save_pretrained(f'./model_e{epoch}.bin')
             break
     if step + 1 >= config['n_steps']:
         break 
     if epoch % evaluation_frequency == 0 and epoch != 0:
-        acc = evaluate(model, test_dataloader)
+        acc_per_x_len, acc_per_y_len, acc = evaluate_per_lenght(model, test_dataloader, tokenizer)
         wandb.log({'epoch':epoch, 'accuracy':acc})
         model.save_pretrained(f'./model_e{epoch}.bin')
         avg_loss = total_loss / len(train_dataloader)
         print(f"Epoch {epoch + 1}/{num_epochs}, Average Loss: {avg_loss}, Accuracy: {acc}")
+        print('accuracy per command length', acc_per_x_len)
+        print('accuracy per action length', acc_per_y_len)
         wandb.log({'epoch':epoch, 'avg_loss':avg_loss})
 
 
