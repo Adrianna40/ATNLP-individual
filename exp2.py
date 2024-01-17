@@ -26,9 +26,9 @@ train_commands, train_actions = read_file(train_file_path)
 test_commands, test_actions = read_file(test_file_path)
 
 config = {
-                    'lr': 0.001,
+                    'lr': 0.0001,
                     "batch_size": 8,
-                    'n_steps': 100000,
+                    'num_epochs': 10,
                 }
 
 if 't5' in sys.argv:
@@ -40,6 +40,13 @@ else:
 
 model = T5ForConditionalGeneration.from_pretrained(model_checkpoint)
 model.to(device)
+
+if 'freeze_encoder' in sys.argv:
+    modules_to_freeze = [model.encoder.block[i].layer[0] for i in range(len(model.encoder.block))]
+    for module in modules_to_freeze:
+        for param in module.parameters():
+            param.requires_grad = False
+
 
 train_in_tensor = tokenizer(train_commands, padding='max_length',  return_tensors="pt").input_ids
 train_out_tensor = tokenizer(train_actions, padding='max_length', return_tensors="pt").input_ids
@@ -55,9 +62,7 @@ optimizer = Adafactor(model.parameters(), lr=config['lr'], scale_parameter=False
 step = 0 
 
 print('model', model_checkpoint)
-num_epochs = config['n_steps']//len(train_actions) + 1 
-evaluate_x_times = 5 
-evaluation_frequency = num_epochs // evaluate_x_times
+num_epochs = config['num_epochs']
 for epoch in range(num_epochs):
     model.train()
     total_loss = 0
@@ -80,28 +85,19 @@ for epoch in range(num_epochs):
         step += len(input_ids_batch)
         del input_ids_batch, labels_batch
         torch.cuda.empty_cache()
-        
-        if step + 1 >= config['n_steps']: 
-            acc_per_x_len, acc_per_y_len, acc = evaluate_per_lenght(model, test_dataloader, tokenizer)
-            print('final accuracy: ', acc)
-            print('accuracy per command length', acc_per_x_len)
-            print('accuracy per action length', acc_per_y_len)
-            wandb.log({'step':step, 'accuracy':acc})
-            model.save_pretrained(f'./model_e{epoch}.bin')
-            break
-    if step + 1 >= config['n_steps']:
-        break 
-    if epoch % evaluation_frequency == 0 and epoch != 0:
-        acc_per_x_len, acc_per_y_len, acc = evaluate_per_lenght(model, test_dataloader, tokenizer)
-        wandb.log({'epoch':epoch, 'accuracy':acc})
-        model.save_pretrained(f'./model_e{epoch}.bin')
-        avg_loss = total_loss / len(train_dataloader)
-        print(f"Epoch {epoch + 1}/{num_epochs}, Average Loss: {avg_loss}, Accuracy: {acc}")
-        print('accuracy per command length', acc_per_x_len)
-        print('accuracy per action length', acc_per_y_len)
-        wandb.log({'epoch':epoch, 'avg_loss':avg_loss})
+    
 
+    acc_per_x_len, acc_per_y_len, acc = evaluate_per_lenght(model, test_dataloader, tokenizer)
+    wandb.log({'epoch':epoch, 'accuracy':acc})
+    model.save_pretrained(f'./model_e{epoch}.bin')
+    avg_loss = total_loss / len(train_dataloader)
+    print(f"Epoch {epoch + 1}/{num_epochs}, Average Loss: {avg_loss}, Accuracy: {acc}")
+    print('accuracy per command length', acc_per_x_len)
+    print('accuracy per action length', acc_per_y_len)
+    wandb.log({'epoch':epoch, 'avg_loss':avg_loss})
 
+model.save_pretrained(f'./{model_checkpoint}_exp2.bin')
+print(evaluate(model, test_dataloader))
 
 
 

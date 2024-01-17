@@ -27,7 +27,7 @@ train_commands, train_actions = read_file(train_file_path)
 test_commands, test_actions = read_file(test_file_path)
 
 config = {
-                    'lr': 0.001,
+                    'lr': 0.0001,
                     "batch_size": 8,
                     'n_steps': 100000,
                 }
