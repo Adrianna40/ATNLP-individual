@@ -20,4 +20,6 @@ To reproduce results with a use of CodeT5 model, run:\
 To reproduce results with a use of T5 model, run:\
 `python3 exp2.py t5`\
 To reproduce results with a use of CodeT5 model, run:\
-`python3 exp2.py`
+`python3 exp2.py`\
+To reporduce results with freezing the first layer of encoder, run:\
+`python3 exp2.py freeze_encoder`
